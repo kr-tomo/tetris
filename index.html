@@ -22,23 +22,21 @@ body{display:flex;align-items:center;justify-content:center;padding-bottom:var(-
 #safeProbe{position:fixed;left:0;top:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none}
 button{font-family:inherit;touch-action:none}
 
-#stage{width:100%;height:calc(var(--c)*24.6);display:grid;
-  grid-template-columns:minmax(calc(var(--c)*4),1fr) calc(var(--c)*10) calc(var(--c)*3.4) calc(var(--c)*10) minmax(calc(var(--c)*4),1fr);
-  grid-template-rows:calc(var(--c)*1.6) calc(var(--c)*20) calc(var(--c)*1.8);
+#stage{width:100%;height:calc(var(--c)*22.7);display:grid;
+  grid-template-columns:calc(var(--c)*4.8) calc(var(--c)*10) minmax(calc(var(--c)*3.4),1fr) calc(var(--c)*10) calc(var(--c)*4.8);
+  grid-template-rows:calc(var(--c)*20) calc(var(--c)*1.8);
   column-gap:calc(var(--c)*.4);row-gap:calc(var(--c)*.3);
   padding:calc(var(--c)*.3) max(calc(var(--c)*.3),env(safe-area-inset-right)) calc(var(--c)*.3) max(calc(var(--c)*.3),env(safe-area-inset-left))}
 
-/* score */
-.score{display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--c)*.4);
-  background:rgba(255,255,255,.05);border-radius:calc(var(--c)*.35);font-size:calc(var(--c)*.8)}
-.score .who{color:var(--acc);font-weight:800}
+/* score (inside the side columns) */
+.score{display:flex;flex-direction:column;align-items:center;width:100%;padding:calc(var(--c)*.3) calc(var(--c)*.1);
+  background:rgba(255,255,255,.05);border-radius:calc(var(--c)*.35);line-height:1.15}
+.score .who{color:var(--acc);font-weight:800;font-size:calc(var(--c)*.8)}
+.score .num{font-weight:800;font-size:calc(var(--c)*.9);font-variant-numeric:tabular-nums;white-space:nowrap}
 .score .lines{font-size:calc(var(--c)*.6);opacity:.6}
-.score .num{font-weight:800;font-size:calc(var(--c)*1.15);font-variant-numeric:tabular-nums}
-#scoreL{grid-area:1/2;--acc:#38bdf8}
-#scoreR{grid-area:1/4;--acc:#fb7185}
 
 /* top center */
-.topc{grid-area:1/3;display:flex;gap:calc(var(--c)*.2)}
+.topc{position:absolute;top:0;left:50%;transform:translateX(-50%);width:calc(var(--c)*3.4);height:calc(var(--c)*1.6);display:flex;gap:calc(var(--c)*.2)}
 .tbtn{flex:1;border-radius:calc(var(--c)*.35);background:rgba(255,255,255,.1);display:grid;place-items:center;
   font-size:calc(var(--c)*.9);color:#cbd5e1;border:0;padding:0}
 .tbtn svg{width:60%;height:60%}
@@ -50,23 +48,23 @@ button{font-family:inherit;touch-action:none}
 .field canvas{display:block;width:100%;height:100%}
 .field.hit{animation:hit .4s ease-out}
 @keyframes hit{0%{box-shadow:0 0 0 calc(var(--c)*.12) #ef4444,0 0 calc(var(--c)*1.6) #ef4444}100%{box-shadow:0 0 0 calc(var(--c)*.12) var(--acc),0 0 0 transparent}}
-#fieldL{grid-area:2/2;--acc:#38bdf8}
-#fieldR{grid-area:2/4;--acc:#fb7185}
+#fieldL{grid-area:1/2;--acc:#38bdf8}
+#fieldR{grid-area:1/4;--acc:#fb7185}
 
 /* sliders */
 .slider{position:relative;border-radius:calc(var(--c)*.5);background-color:#0e1730;
   background-image:repeating-linear-gradient(90deg,transparent 0,transparent calc(var(--c) - 1px),rgba(255,255,255,.1) calc(var(--c) - 1px),rgba(255,255,255,.1) var(--c));
   box-shadow:inset 0 0 0 2px #1e293b}
-#slL{grid-area:3/2;--acc:#38bdf8}
-#slR{grid-area:3/4;--acc:#fb7185}
-.thumb{position:absolute;top:50%;left:calc(var(--c)*4.5);width:calc(var(--c)*1.9);height:calc(var(--c)*1.4);
+#slL{grid-area:2/2;--acc:#38bdf8}
+#slR{grid-area:2/4;--acc:#fb7185}
+.thumb{position:absolute;top:50%;left:calc(var(--c)*4.5);width:calc(var(--c)*1.7);height:calc(var(--c)*1.4);
   transform:translate(-50%,-50%);border-radius:calc(var(--c)*.5);background:var(--acc);color:#0b1020;
   display:flex;align-items:center;justify-content:space-between;padding:0 calc(var(--c)*.25);
   transition:left .05s linear;pointer-events:none}
 .thumb svg{width:calc(var(--c)*.5);height:calc(var(--c)*.7)}
 
 /* center */
-.center{grid-area:2/3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--c)*.5)}
+.center{grid-area:1/3;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--c)*.5)}
 .spd{text-align:center;font-size:calc(var(--c)*.6);color:#94a3b8;line-height:1.1}
 .spd b{display:block;font-size:calc(var(--c)*1.8);color:#fff;font-variant-numeric:tabular-nums}
 .cbtn{width:calc(var(--c)*3);height:calc(var(--c)*3);border-radius:calc(var(--c)*.7);background:#1e293b;
@@ -80,7 +78,7 @@ button{font-family:inherit;touch-action:none}
 .atk.off{background:#450a0a;border-color:#f87171;color:#fecaca}
 
 /* sides */
-.side{grid-row:1/4;display:flex;flex-direction:column;justify-content:space-between;padding:calc(var(--c)*.1) 0}
+.side{grid-row:1/3;display:flex;flex-direction:column;justify-content:space-between;padding:calc(var(--c)*.1) 0}
 #sideL{grid-column:1;align-items:flex-start;--acc:#38bdf8}
 #sideR{grid-column:5;align-items:flex-end;--acc:#fb7185}
 .nextbox,.btns{width:min(100%,calc(var(--c)*4.8))}
@@ -128,14 +126,9 @@ button{font-family:inherit;touch-action:none}
 </head>
 <body>
 <div id="stage">
-  <div class="score" id="scoreL"><span class="who">1P</span><span class="lines">줄 <span id="lnL">0</span></span><span class="num" id="scL">0</span></div>
-  <div class="topc">
-    <button class="tbtn" id="pauseBtn" aria-label="일시정지"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/></svg></button>
-    <button class="tbtn" id="rankBtn" aria-label="순위">🏆</button>
-  </div>
-  <div class="score" id="scoreR"><span class="who">2P</span><span class="lines">줄 <span id="lnR">0</span></span><span class="num" id="scR">0</span></div>
 
   <aside class="side" id="sideL">
+    <div class="score"><span class="who">1P</span><span class="num" id="scL">0</span><span class="lines">줄 <span id="lnL">0</span></span></div>
     <div class="nextbox">
       <div class="lbl">다음</div><canvas class="n1c" id="n1L"></canvas>
       <div class="lbl n2">그다음</div><canvas class="n2c" id="n2L"></canvas>
@@ -148,6 +141,10 @@ button{font-family:inherit;touch-action:none}
 
   <div class="field" id="fieldL"><canvas id="cvL"></canvas></div>
   <div class="center">
+    <div class="topc">
+      <button class="tbtn" id="pauseBtn" aria-label="일시정지"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/></svg></button>
+      <button class="tbtn" id="rankBtn" aria-label="순위">🏆</button>
+    </div>
     <div class="spd">속도<b id="spdVal">1</b></div>
     <button class="cbtn" id="spdUp" aria-label="속도 올리기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg></button>
     <button class="cbtn atk on" id="atkBtn"><span>공격</span><b id="atkTxt">ON</b></button>
@@ -159,6 +156,7 @@ button{font-family:inherit;touch-action:none}
   <div class="slider" id="slR"><div class="thumb" id="thR"><svg viewBox="0 0 10 14"><path d="M7 2L2 7l5 5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><svg viewBox="0 0 10 14"><path d="M3 2l5 5-5 5" stroke="currentColor" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
 
   <aside class="side" id="sideR">
+    <div class="score"><span class="who">2P</span><span class="num" id="scR">0</span><span class="lines">줄 <span id="lnR">0</span></span></div>
     <div class="nextbox">
       <div class="lbl">다음</div><canvas class="n1c" id="n1R"></canvas>
       <div class="lbl n2">그다음</div><canvas class="n2c" id="n2R"></canvas>
@@ -228,7 +226,7 @@ function mkPlayer(side){
   return {side,k,cv:$('#cv'+k),n1:$('#n1'+k),n2:$('#n2'+k),thumb:$('#th'+k),field:$('#field'+k),
     scEl:$('#sc'+k),lnEl:$('#ln'+k),
     grid:newGrid(),cur:null,idx:0,score:0,lines:0,dropAcc:0,lockAcc:0,resets:0,soft:false,
-    pid:0,drag:null,dropT:0,dropId:null,nextKey:'',thumbCol:-1};
+    pid:0,drag:null,dropT:0,dropId:null,nextKey:'',thumbCol:-1,sliderCol:4};
 }
 const P1=mkPlayer(1), P2=mkPlayer(2), players=[P1,P2];
 const opp=p=>p===P1?P2:P1;
@@ -257,7 +255,9 @@ function spawn(p){
   let off=0;while(!m[off].some(v=>v))off++;
   p.cur={t,id:ID[t],m,x:Math.floor((COLS-m.length)/2),y:-off};
   p.pid++;p.dropAcc=0;p.lockAcc=0;p.resets=0;
-  if(collides(p,p.cur.m,p.cur.x,p.cur.y))gameOver(p);
+  if(collides(p,p.cur.m,p.cur.x,p.cur.y)){gameOver(p);return;}
+  setCol(p,p.sliderCol);               // appear where the slider thumb is, so it never jumps away from the finger
+  p.lockAcc=0;p.resets=0;
 }
 function moveBy(p,dx){
   const c=p.cur;if(!c||state!=='play')return false;
@@ -281,7 +281,7 @@ function rotate(p){
   const n=c.m.length;
   const m=Array.from({length:n},(_,r)=>Array.from({length:n},(_,k)=>c.m[n-1-k][r]));
   for(const dy of [0,-1,-2])for(const dx of [0,-1,1,-2,2]){
-    if(!collides(p,m,c.x+dx,c.y+dy)){c.m=m;c.x+=dx;c.y+=dy;touched(p);return;}
+    if(!collides(p,m,c.x+dx,c.y+dy)){c.m=m;c.x+=dx;c.y+=dy;touched(p);if(!p.drag)p.sliderCol=pieceCol(p);return;}
   }
 }
 function hardDrop(p){
@@ -338,6 +338,7 @@ function addGarbage(t,rows){
 }
 function update(p,dt){
   const c=p.cur;if(!c)return;
+  if(p.drag)setCol(p,p.sliderCol);     // keep chasing the thumb while the finger is down
   const g=gravity(), iv=p.soft?Math.min(g,45):g;
   p.dropAcc+=dt;
   while(p.dropAcc>=iv){
@@ -380,7 +381,7 @@ function setState(s){
 function newGame(){
   seq=[];
   for(const p of players){
-    p.grid=newGrid();p.cur=null;p.idx=0;p.score=0;p.lines=0;p.soft=false;p.drag=null;p.nextKey='';
+    p.grid=newGrid();p.cur=null;p.idx=0;p.score=0;p.lines=0;p.soft=false;p.drag=null;p.nextKey='';p.sliderCol=4;p.thumbCol=-1;
     p.scEl.textContent='0';p.lnEl.textContent='0';
   }
   setSpeed(1);elapsed=0;autoAcc=0;
@@ -478,7 +479,7 @@ function render(){
         drawNext(p.n1,seqAt(p.idx));drawNext(p.n2,seqAt(p.idx+1));
       }
     }
-    const col=p.cur?pieceCol(p):4;
+    const col=p.sliderCol;
     if(col!==p.thumbCol){p.thumbCol=col;p.thumb.style.left=`calc(var(--c) * ${col+.5})`;}
   }
 }
@@ -489,7 +490,7 @@ function layout(){
   // reserve room at the bottom for the OS gesture bar / browser UI so the sliders are never covered
   const safe=$('#safeProbe').getBoundingClientRect().height||0;
   const bm=Math.round(Math.max(safe,0)+Math.max(12,h*0.06));
-  C=Math.max(6,Math.min((h-bm)/24.6,w/33.6));
+  C=Math.max(6,Math.min((h-bm)/22.7,w/35.2));
   dpr=Math.min(3,window.devicePixelRatio||1);
   document.documentElement.style.setProperty('--c',C+'px');
   document.documentElement.style.setProperty('--bm',bm+'px');
@@ -528,12 +529,14 @@ function bindSlider(p,el){
     e.preventDefault();
     if(state!=='play'||!p.cur)return;
     el.setPointerCapture(e.pointerId);
-    p.drag={id:e.pointerId,x:e.clientX,col:pieceCol(p),pid:p.pid};
+    p.drag={id:e.pointerId,x:e.clientX,col:p.sliderCol};
   });
   el.addEventListener('pointermove',e=>{
-    const d=p.drag;if(!d||d.id!==e.pointerId||!p.cur||state!=='play')return;
-    if(d.pid!==p.pid){d.pid=p.pid;d.x=e.clientX;d.col=pieceCol(p);}
-    setCol(p,clamp(d.col+Math.round((e.clientX-d.x)/C),0,COLS-1));
+    const d=p.drag;if(!d||d.id!==e.pointerId||state!=='play')return;
+    const raw=d.col+Math.round((e.clientX-d.x)/C), v=clamp(raw,0,COLS-1);
+    if(raw!==v)d.x+=(raw-v)*C;          // drop the overshoot at the edges so the thumb follows the finger back immediately
+    p.sliderCol=v;
+    if(p.cur)setCol(p,v);
   });
   const end=e=>{if(p.drag&&p.drag.id===e.pointerId)p.drag=null;};
   el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
@@ -569,6 +572,7 @@ document.addEventListener('keydown',e=>{
   const [p,a]=k;
   if(a==='l')moveBy(p,-1);else if(a==='r')moveBy(p,1);else if(a==='rot')rotate(p);
   else if(a==='soft')p.soft=true;else if(a==='hard'&&!e.repeat)hardDrop(p);
+  if((a==='l'||a==='r')&&p.cur&&!p.drag)p.sliderCol=pieceCol(p);
 });
 document.addEventListener('keyup',e=>{const k=KEYS[e.code];if(k&&k[1]==='soft')k[0].soft=false;});
 
