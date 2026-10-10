@@ -79,6 +79,8 @@ button{font-family:inherit;touch-action:none}
 .atk b{font-size:calc(var(--c)*1.1)}
 .atk.on{background:#14532d;border-color:#4ade80;color:#bbf7d0}
 .atk.off{background:#450a0a;border-color:#f87171;color:#fecaca}
+.atk.power{background:#7c2d12;border-color:#fb923c;color:#fed7aa;box-shadow:0 0 calc(var(--c)*.8) rgba(251,146,60,.55)}
+.atk.power b{font-size:calc(var(--c)*.85)}
 
 /* sides */
 .side{grid-row:1/3;display:flex;flex-direction:column;justify-content:space-between;padding:calc(var(--c)*.1) 0}
@@ -199,7 +201,7 @@ body.portrait .lbrow .d{display:none}
 <div class="ov show" id="menu"><div class="card">
   <h1 id="mTitle">대결 테트리스</h1>
   <p id="mMsg"></p>
-  <div class="row"><button id="mMain">시작</button><button class="sec hide" id="mSub">새 게임</button><button class="sec" id="mRank">순위</button><button class="sec" id="mBg">배경</button></div>
+  <div class="row"><button id="mMain">시작</button><button class="sec hide" id="mSub">새 게임</button><button class="sec" id="mRank">순위</button><button class="sec" id="mBg">배경</button><button class="sec" id="mSnd">소리</button></div>
 </div></div>
 
 <div class="ov" id="lb"><div class="card">
@@ -233,12 +235,42 @@ const LB_KEY='vs-tetris-lb-v1';
 // (any size) and set cols/rows to match its grid. Every cell is one background; the 배경 button cycles them.
 const BG={src:'sprites/background.png',cols:2,rows:2};
 const BG_KEY='vs-tetris-bg';
+const CLEAR_MS=500;                      // cleared rows fade out for this long
+const SND_KEY='vs-tetris-snd';
+
+/* ---------- sound (synthesised, no asset files; browsers only allow it after a first touch) ---------- */
+let audioCtx=null, soundOn=true;
+try{soundOn=localStorage.getItem(SND_KEY)!=='0';}catch(e){}
+function unlockAudio(){
+  try{
+    if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC();}
+    if(audioCtx&&audioCtx.state==='suspended')audioCtx.resume();
+  }catch(e){}
+}
+document.addEventListener('pointerdown',unlockAudio,{passive:true});
+function playClear(n){
+  if(!soundOn||!audioCtx)return;
+  try{
+    const t0=audioCtx.currentTime, notes=[523.25,659.25,783.99,1046.5,1318.5], cnt=Math.min(n+1,5);   // more lines = longer rising arpeggio
+    for(let i=0;i<cnt;i++){
+      const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=t0+i*0.07;
+      o.type=(i===cnt-1&&n>=4)?'square':'triangle';
+      o.frequency.setValueAtTime(notes[i],t);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.16,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.28);
+      o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+0.3);
+    }
+    const o=audioCtx.createOscillator(),g=audioCtx.createGain();   // falling sweep that follows the 0.5s fade
+    o.type='sine';o.frequency.setValueAtTime(900,t0);o.frequency.exponentialRampToValueAtTime(220,t0+CLEAR_MS/1000);
+    g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.07,t0+0.03);g.gain.exponentialRampToValueAtTime(0.0001,t0+CLEAR_MS/1000);
+    o.connect(g);g.connect(audioCtx.destination);o.start(t0);o.stop(t0+CLEAR_MS/1000+0.02);
+  }catch(e){}
+}
 const $=s=>document.querySelector(s);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 let C=14, dpr=1, portrait=false, soloSave=null;
 let state='ready';               // ready | play | paused | over
-let speed=1, elapsed=0, autoAcc=0, attackOn=true;
+let speed=1, elapsed=0, autoAcc=0, attackMode=1;   // attackMode: 0 OFF, 1 ON, 2 POWER
 let seq=[], lastGameT=0, lastMsg='';
 
 function seqAt(i){
@@ -331,27 +363,38 @@ function lock(p){
   for(let r=0;r<ROWS;r++)if(p.grid[r].every(v=>v))full.push(r);
   const n=full.length;
   if(n){
-    p.grid=p.grid.filter((_,r)=>!full.includes(r));
-    while(p.grid.length<ROWS)p.grid.unshift(Array(COLS).fill(0));
     p.lines+=n;p.lnEl.textContent=p.lines;
     addScore(p,lineScore(n));
-    if(attackOn&&!portrait){                 // no versus in portrait
-      const k=Math.floor(n/2);                     // 1→0, 2→1, 3→1, 4→2
+    playClear(n);
+    if(attackMode>0&&!portrait){             // no versus in portrait
+      // ON: floor(n/2) rows (1→0, 2→1, 3→1, 4→2)   POWER: n-1 rows (1→0, 2→1, 3→2, 4→3)
+      const k=attackMode===2?n-1:Math.floor(n/2);
       if(k>0){
         const pool=full.map(r=>snap[r]);
         for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
         addGarbage(opp(p),pool.slice(0,k));
       }
     }
+    if(out||state!=='play')removeRows(p,full);
+    else p.clearing={rows:full,t:0};         // the rows stay on the board and fade out; the next piece waits
   }
   if(out){gameOver(p);return;}
+  if(!p.clearing&&state==='play')spawn(p);
+}
+function removeRows(p,rows){
+  p.grid=p.grid.filter((_,r)=>!rows.includes(r));
+  while(p.grid.length<ROWS)p.grid.unshift(Array(COLS).fill(0));
+}
+function finishClear(p){
+  removeRows(p,p.clearing.rows);p.clearing=null;
   if(state==='play')spawn(p);
 }
 function addGarbage(t,rows){
   const k=rows.length;
   let overflow=false;
-  for(let i=0;i<k;i++)if(t.grid[i].some(v=>v))overflow=true;
+  for(let i=0;i<k;i++)if(t.grid[i].some(v=>v)&&!(t.clearing&&t.clearing.rows.includes(i)))overflow=true;
   t.grid=t.grid.slice(k).concat(rows.map(r=>r.map(v=>v?10+(v%10):0)));
+  if(t.clearing)t.clearing.rows=t.clearing.rows.map(r=>r-k);   // rows being cleared moved up with the board
   const c=t.cur;
   if(c){
     let tries=0;
@@ -362,6 +405,7 @@ function addGarbage(t,rows){
   if(overflow)gameOver(t);
 }
 function update(p,dt){
+  if(p.clearing){p.clearing.t+=dt;if(p.clearing.t>=CLEAR_MS)finishClear(p);return;}
   const c=p.cur;if(!c)return;
   if(p.drag)setCol(p,p.sliderCol);     // keep chasing the thumb while the finger is down
   const g=gravity(), iv=p.soft?Math.min(g,FAST_MS):g;
@@ -386,10 +430,10 @@ function setSpeed(v,flash){
   $('#spdVal').textContent=speed;
 }
 function setAttack(v){
-  attackOn=v;
+  attackMode=v===true?1:v===false?0:v;       // booleans kept for compatibility
   const b=$('#atkBtn');
-  b.classList.toggle('on',v);b.classList.toggle('off',!v);
-  $('#atkTxt').textContent=v?'ON':'OFF';
+  b.classList.toggle('off',attackMode===0);b.classList.toggle('on',attackMode===1);b.classList.toggle('power',attackMode===2);
+  $('#atkTxt').textContent=['OFF','ON','POWER'][attackMode];
 }
 function showMenu(){
   const t=$('#mTitle'),m=$('#mMsg'),a=$('#mMain'),s=$('#mSub');
@@ -408,7 +452,7 @@ function setState(s){
 function newGame(){
   seq=[];
   for(const p of players){
-    p.grid=newGrid();p.cur=null;p.idx=0;p.score=0;p.lines=0;p.soft=false;p.drag=null;p.nextKey='';p.sliderCol=4;p.thumbCol=-1;
+    p.grid=newGrid();p.cur=null;p.idx=0;p.score=0;p.lines=0;p.soft=false;p.drag=null;p.nextKey='';p.sliderCol=4;p.thumbCol=-1;p.clearing=null;
     p.scEl.textContent='0';p.lnEl.textContent='0';
   }
   setSpeed(1);elapsed=0;autoAcc=0;soloSave=portrait?{speed:1,autoAcc:0}:null;
@@ -460,15 +504,22 @@ function drawCell(ctx,x,y,s,color,alpha){
   ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(x+1,y+s-1-Math.max(2,s*.14),s-2,Math.max(2,s*.14));
   ctx.globalAlpha=1;
 }
+function fadeColor(hex,k){          // colours wash out to pale grey while they fade away
+  const n=parseInt(hex.slice(1),16), m=Math.min(1,k*1.5), mix=(a,b)=>Math.round(a+(b-a)*m);
+  return `rgb(${mix((n>>16)&255,205)},${mix((n>>8)&255,210)},${mix(n&255,225)})`;
+}
 function drawField(p){
   const cv=p.cv,ctx=cv.getContext('2d'),s=cv.width/COLS;
   ctx.clearRect(0,0,cv.width,cv.height);
   ctx.fillStyle='rgba(255,255,255,.05)';
   for(let i=1;i<COLS;i++)ctx.fillRect(i*s-.5,0,1,cv.height);
   for(let i=1;i<ROWS;i++)ctx.fillRect(0,i*s-.5,cv.width,1);
+  const cl=p.clearing, fade=cl?Math.min(1,cl.t/CLEAR_MS):0;
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     const v=p.grid[r][c];if(!v)continue;
-    drawCell(ctx,c*s,r*s,s,COLORS[v%10],v>=10?.62:1);
+    const base=v>=10?.62:1;
+    if(cl&&cl.rows.includes(r))drawCell(ctx,c*s,r*s,s,fadeColor(COLORS[v%10],fade),base*(1-fade));
+    else drawCell(ctx,c*s,r*s,s,COLORS[v%10],base);
   }
   const cur=p.cur;
   if(cur&&state!=='ready'){
@@ -603,7 +654,7 @@ function tap(el,fn){el.addEventListener('pointerdown',e=>{e.preventDefault();el.
   el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('pointerleave',up);}
 tap($('#spdUp'),()=>setSpeed(speed+1));
 tap($('#spdDn'),()=>setSpeed(speed-1));
-$('#atkBtn').addEventListener('pointerdown',e=>{e.preventDefault();setAttack(!attackOn);});
+$('#atkBtn').addEventListener('pointerdown',e=>{e.preventDefault();setAttack((attackMode+1)%3);});
 $('#pauseBtn').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='play')pause();else if(state==='paused')setState('play');});
 $('#rankBtn').addEventListener('pointerdown',e=>{e.preventDefault();openLB();});
 
@@ -611,6 +662,9 @@ $('#mMain').addEventListener('click',()=>{state==='paused'?setState('play'):newG
 $('#mSub').addEventListener('click',newGame);
 $('#mRank').addEventListener('click',openLB);
 $('#mBg').addEventListener('click',()=>{bgIndex=(bgIndex+1)%(BG.cols*BG.rows);try{localStorage.setItem(BG_KEY,String(bgIndex));}catch(e){}applyBg();});
+function updSnd(){$('#mSnd').textContent=soundOn?'소리 켜짐':'소리 꺼짐';}
+$('#mSnd').addEventListener('click',()=>{soundOn=!soundOn;try{localStorage.setItem(SND_KEY,soundOn?'1':'0');}catch(e){}updSnd();unlockAudio();});
+updSnd();
 $('#lbClose').addEventListener('click',()=>{lbEl.classList.remove('show');});
 $('#lbClear').addEventListener('click',()=>{
   if(!clearArmed){clearArmed=1;$('#lbClear').textContent='한 번 더 누르면 삭제';return;}
@@ -660,7 +714,7 @@ setSpeed(1);setAttack(true);
 setState('ready');
 requestAnimationFrame(frame);
 window.__vt={players,P1,P2,update,tick,layout,newGame,lock,collides,rotate,setCol,addGarbage,pieceCol,setAttack,
-  get state(){return state;},get portrait(){return portrait;},get speed(){return speed;},setSpeed};
+  get state(){return state;},get attackMode(){return attackMode;},get portrait(){return portrait;},get speed(){return speed;},setSpeed};
 
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
   window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
