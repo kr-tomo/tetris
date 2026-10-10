@@ -18,7 +18,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1020;col
   position:fixed;inset:0;overscroll-behavior:none;touch-action:none;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
   font-family:system-ui,-apple-system,"Noto Sans KR","Apple SD Gothic Neo",sans-serif}
-body{display:flex;align-items:center;justify-content:center;padding-bottom:var(--bm,0px)}
+body{display:flex;align-items:center;justify-content:center;padding-top:var(--pt,0px);padding-bottom:var(--bm,0px)}
 #safeProbe{position:fixed;left:0;top:0;width:0;height:env(safe-area-inset-bottom,0px);visibility:hidden;pointer-events:none}
 button{font-family:inherit;touch-action:none}
 /* background sprite: the image/grid come from BG in the script; JS crops one cell of the sheet to cover the screen */
@@ -201,7 +201,7 @@ body.portrait .lbrow .d{display:none}
 <div class="ov show" id="menu"><div class="card">
   <h1 id="mTitle">대결 테트리스</h1>
   <p id="mMsg"></p>
-  <div class="row"><button id="mMain">시작</button><button class="sec hide" id="mSub">새 게임</button><button class="sec" id="mRank">순위</button><button class="sec" id="mBg">배경</button><button class="sec" id="mSnd">소리</button></div>
+  <div class="row"><button id="mMain">시작</button><button class="sec hide" id="mSub">새 게임</button><button class="sec" id="mRank">순위</button><button class="sec" id="mBg">배경</button></div>
 </div></div>
 
 <div class="ov" id="lb"><div class="card">
@@ -235,12 +235,10 @@ const LB_KEY='vs-tetris-lb-v1';
 // (any size) and set cols/rows to match its grid. Every cell is one background; the 배경 button cycles them.
 const BG={src:'sprites/background.png',cols:2,rows:2};
 const BG_KEY='vs-tetris-bg';
-const CLEAR_MS=500;                      // cleared rows fade out for this long
-const SND_KEY='vs-tetris-snd';
+const CLEAR_MS=300, FLASH_MS=100;        // whole clear effect; the first FLASH_MS is the centre-out brighten, the rest is the fade
 
 /* ---------- sound (synthesised, no asset files; browsers only allow it after a first touch) ---------- */
-let audioCtx=null, soundOn=true;
-try{soundOn=localStorage.getItem(SND_KEY)!=='0';}catch(e){}
+let audioCtx=null;
 function unlockAudio(){
   try{
     if(!audioCtx){const AC=window.AudioContext||window.webkitAudioContext;if(AC)audioCtx=new AC();}
@@ -249,7 +247,7 @@ function unlockAudio(){
 }
 document.addEventListener('pointerdown',unlockAudio,{passive:true});
 function playClear(n){
-  if(!soundOn||!audioCtx)return;
+  if(!audioCtx)return;
   try{
     const t0=audioCtx.currentTime, notes=[523.25,659.25,783.99,1046.5,1318.5], cnt=Math.min(n+1,5);   // more lines = longer rising arpeggio
     for(let i=0;i<cnt;i++){
@@ -504,9 +502,20 @@ function drawCell(ctx,x,y,s,color,alpha){
   ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(x+1,y+s-1-Math.max(2,s*.14),s-2,Math.max(2,s*.14));
   ctx.globalAlpha=1;
 }
-function fadeColor(hex,k){          // colours wash out to pale grey while they fade away
-  const n=parseInt(hex.slice(1),16), m=Math.min(1,k*1.5), mix=(a,b)=>Math.round(a+(b-a)*m);
-  return `rgb(${mix((n>>16)&255,205)},${mix((n>>8)&255,210)},${mix(n&255,225)})`;
+// Line-clear look. 0..FLASH_MS: the row lights up cell by cell from the centre outward.
+// FLASH_MS..CLEAR_MS: the whole row washes out to pale grey while it turns transparent. Returns [colour, alpha factor].
+function clearLook(hex,col,t){
+  const n=parseInt(hex.slice(1),16), rgb=[(n>>16)&255,(n>>8)&255,n&255];
+  const bright=rgb.map(v=>v+(255-v)*0.9);
+  if(t<FLASH_MS){
+    const half=(COLS-1)/2, d=Math.abs(col-half);                    // distance from the centre of the row
+    const delay=(d-0.5)/(half-0.5)*0.6*FLASH_MS, ramp=0.4*FLASH_MS; // centre first, outermost last, all lit by FLASH_MS
+    const lv=clamp((t-delay)/ramp,0,1), m=rgb.map((v,i)=>Math.round(v+(bright[i]-v)*lv));
+    return [`rgb(${m[0]},${m[1]},${m[2]})`,1];
+  }
+  const f=Math.min(1,(t-FLASH_MS)/(CLEAR_MS-FLASH_MS)), k=Math.min(1,f*1.5), pale=[205,210,225];
+  const m=bright.map((v,i)=>Math.round(v+(pale[i]-v)*k));
+  return [`rgb(${m[0]},${m[1]},${m[2]})`,1-f];
 }
 function drawField(p){
   const cv=p.cv,ctx=cv.getContext('2d'),s=cv.width/COLS;
@@ -514,11 +523,11 @@ function drawField(p){
   ctx.fillStyle='rgba(255,255,255,.05)';
   for(let i=1;i<COLS;i++)ctx.fillRect(i*s-.5,0,1,cv.height);
   for(let i=1;i<ROWS;i++)ctx.fillRect(0,i*s-.5,cv.width,1);
-  const cl=p.clearing, fade=cl?Math.min(1,cl.t/CLEAR_MS):0;
+  const cl=p.clearing;
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){
     const v=p.grid[r][c];if(!v)continue;
     const base=v>=10?.62:1;
-    if(cl&&cl.rows.includes(r))drawCell(ctx,c*s,r*s,s,fadeColor(COLORS[v%10],fade),base*(1-fade));
+    if(cl&&cl.rows.includes(r)){const [col,a]=clearLook(COLORS[v%10],c,cl.t);drawCell(ctx,c*s,r*s,s,col,base*a);}
     else drawCell(ctx,c*s,r*s,s,COLORS[v%10],base);
   }
   const cur=p.cur;
@@ -599,7 +608,10 @@ function layout(){
   C=portrait?Math.max(6,Math.min((h-bm)/25.4,w/16.4)):Math.max(6,Math.min((h-bm)/22.7,w/38.4));
   dpr=Math.min(3,window.devicePixelRatio||1);
   document.documentElement.style.setProperty('--c',C+'px');
-  document.documentElement.style.setProperty('--bm',bm+'px');
+  // Vertical margins keep the same total as before, but one cell less below and one cell more above (the whole UI sits one cell lower)
+  const padB=Math.round(Math.max(safe,bm-C)), padT=Math.max(0,bm-padB);
+  document.documentElement.style.setProperty('--bm',padB+'px');
+  document.documentElement.style.setProperty('--pt',padT+'px');
   applyBg();
   for(const p of players){
     p.cv.width=Math.round(COLS*C*dpr);p.cv.height=Math.round(ROWS*C*dpr);
@@ -662,9 +674,6 @@ $('#mMain').addEventListener('click',()=>{state==='paused'?setState('play'):newG
 $('#mSub').addEventListener('click',newGame);
 $('#mRank').addEventListener('click',openLB);
 $('#mBg').addEventListener('click',()=>{bgIndex=(bgIndex+1)%(BG.cols*BG.rows);try{localStorage.setItem(BG_KEY,String(bgIndex));}catch(e){}applyBg();});
-function updSnd(){$('#mSnd').textContent=soundOn?'소리 켜짐':'소리 꺼짐';}
-$('#mSnd').addEventListener('click',()=>{soundOn=!soundOn;try{localStorage.setItem(SND_KEY,soundOn?'1':'0');}catch(e){}updSnd();unlockAudio();});
-updSnd();
 $('#lbClose').addEventListener('click',()=>{lbEl.classList.remove('show');});
 $('#lbClear').addEventListener('click',()=>{
   if(!clearArmed){clearArmed=1;$('#lbClear').textContent='한 번 더 누르면 삭제';return;}
@@ -713,7 +722,7 @@ layout();loadBg();
 setSpeed(1);setAttack(true);
 setState('ready');
 requestAnimationFrame(frame);
-window.__vt={players,P1,P2,update,tick,layout,newGame,lock,collides,rotate,setCol,addGarbage,pieceCol,setAttack,
+window.__vt={players,P1,P2,update,tick,layout,render,newGame,lock,collides,rotate,setCol,addGarbage,pieceCol,setAttack,
   get state(){return state;},get attackMode(){return attackMode;},get portrait(){return portrait;},get speed(){return speed;},setSpeed};
 
 if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
