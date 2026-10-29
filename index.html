@@ -700,6 +700,23 @@ document.addEventListener('keyup',e=>{const k=KEYS[e.code];if(k&&k[1]==='soft')k
 const PAD_ROT=0, PAD_DROP=1, PAD_L=14, PAD_R=15, DAS_MS=170, ARR_MS=55;
 const padOrder=[], padSt={};            // padOrder: gamepad indices in connection order
 function padList(){return (navigator.getGamepads?Array.from(navigator.getGamepads()):[]).filter(Boolean);}
+// Horizontal direction from a pad. Different OS/modes report the D-pad differently, so each source is read separately and
+// L+R at once cancels out (the old code let a stray left reading win over right).
+function padDir(g,b){
+  const std=g.mapping==='standard';
+  let l=b(PAD_L), r=b(PAD_R);
+  if(std){const ax=g.axes[0]||0;if(ax<-.5)l=true;if(ax>.5)r=true;}   // left stick only where axis 0 is known to be the stick's X
+  else{
+    const a6=g.axes[6];                                              // Android HAT_X
+    if(a6!==undefined&&Math.abs(a6)>.5){if(a6<0)l=true;else r=true;}
+    const h=g.axes[9];                                               // Chrome hat-switch encoding (8 positions)
+    if(h!==undefined&&Math.abs(h)<=1.0001){
+      if([.714,.428,1].some(v=>Math.abs(h-v)<.06))l=true;
+      if([-.428,-.714,-.143].some(v=>Math.abs(h-v)<.06))r=true;
+    }
+  }
+  return l===r?0:(l?-1:1);
+}
 function pollPads(dt){
   const list=padList(), live=list.filter(g=>g.connected).map(g=>g.index);
   for(const i of live)if(!padOrder.includes(i)){padOrder.push(i);padSt[i]={dir:0,t:0,rot:false,drop:false};}
@@ -708,11 +725,11 @@ function pollPads(dt){
   [[P1,'#padL','1P'],[P2,'#padR','2P']].forEach(([p,sel],slot)=>{
     const el=$(sel),idx=padOrder[slot],g=idx==null?null:list.find(x=>x.index===idx);
     const on=!!g&&act.includes(p);
-    el.classList.toggle('on',on);
+    el.classList.toggle('on',on);el.title=g?(g.id+' / '+(g.mapping||'non-standard')):'';
     const txt='🎮 '+(slot+1)+'P'+(g?'':' –');if(el.textContent!==txt)el.textContent=txt;
     if(!g||!act.includes(p)||state!=='play'){const st=g&&padSt[idx];if(st){st.dir=0;if(st.drop){st.drop=false;p.soft=false;}}return;}
     const st=padSt[idx],b=i=>!!(g.buttons[i]&&g.buttons[i].pressed);
-    const ax=g.axes[0]||0, dir=(b(PAD_L)||ax<-.5)?-1:(b(PAD_R)||ax>.5)?1:0;
+    const dir=padDir(g,b);
     if(dir!==st.dir){st.dir=dir;st.t=0;if(dir){moveBy(p,dir);if(p.cur&&!p.drag)p.sliderCol=pieceCol(p);}}
     else if(dir){st.t+=dt;if(st.t>=DAS_MS){st.t-=ARR_MS;moveBy(p,dir);if(p.cur&&!p.drag)p.sliderCol=pieceCol(p);}}
     const rot=b(PAD_ROT);if(rot&&!st.rot)rotate(p);st.rot=rot;
