@@ -697,7 +697,7 @@ document.addEventListener('keyup',e=>{const k=KEYS[e.code];if(k&&k[1]==='soft')k
 
 /* gamepad (Gamepad API, standard mapping): D-pad / left stick = move, A (right face button) = rotate, B (bottom face button) = drop.
    The first controller connected is 1P, the second 2P; in portrait only 1P is active. Touch keeps working alongside. */
-const PAD_ROT=1, PAD_DROP=0, PAD_L=14, PAD_R=15, DAS_MS=170, ARR_MS=55;
+const PAD_ROT=0, PAD_DROP=1, PAD_L=14, PAD_R=15, DAS_MS=170, ARR_MS=55;
 const padOrder=[], padSt={};            // padOrder: gamepad indices in connection order
 function padList(){return (navigator.getGamepads?Array.from(navigator.getGamepads()):[]).filter(Boolean);}
 function pollPads(dt){
